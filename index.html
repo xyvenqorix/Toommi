@@ -2,85 +2,107 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pajarito Clicker - Retiro Real</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
+    <title>Pajarito Clicker & Real Payout</title>
     <style>
-        body { margin: 0; background: radial-gradient(circle, #1a1a1a, #000); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; }
+        :root { --main-blue: #00d4ff; --bg-dark: #050505; }
+        body { margin: 0; background: var(--bg-dark); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; }
         
-        #score-container { margin-top: 40px; text-align: center; }
-        #score { font-size: 3rem; font-weight: bold; color: #00d4ff; text-shadow: 0 0 20px rgba(0,212,255,0.5); }
-        
-        /* El Pajarito / Botón de Click */
-        #game-bird { width: 200px; height: 200px; background: url('https://cdn-icons-png.flaticon.com/512/733/733579.png') no-repeat center; background-size: contain; margin: 50px 0; cursor: pointer; transition: transform 0.05s; user-select: none; }
-        #game-bird:active { transform: scale(0.95); }
+        /* Marcador de Puntos */
+        #score-panel { margin-top: 30px; text-align: center; z-index: 10; }
+        #score-label { font-size: 14px; color: #888; letter-spacing: 2px; }
+        #score { font-size: 4rem; font-weight: 900; color: var(--main-blue); text-shadow: 0 0 30px rgba(0,212,255,0.6); }
 
-        /* Panel de Retiro Inferior */
-        #withdrawal-panel { position: fixed; bottom: 0; width: 100%; max-width: 450px; background: #111; padding: 20px; border-radius: 20px 20px 0 0; border-top: 2px solid #333; text-align: center; box-sizing: border-box; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 10px; border: 1px solid #444; background: #222; color: #fff; text-align: center; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; border-radius: 10px; border: none; background: #00d4ff; color: #000; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
-        #status-msg { font-size: 12px; margin-top: 10px; color: #888; }
+        /* Área del Juego */
+        #game-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; width: 100%; position: relative; }
+        #bird { width: 180px; height: 180px; background: url('https://cdn-icons-png.flaticon.com/512/733/733579.png') no-repeat center; background-size: contain; cursor: pointer; transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275); filter: drop-shadow(0 0 10px var(--main-blue)); }
+        #bird:active { transform: scale(0.85); }
+
+        /* Panel de Retiro (Estilo Telegram) */
+        #payout-footer { width: 100%; max-width: 450px; background: #121212; padding: 25px; border-radius: 25px 25px 0 0; border-top: 1px solid #333; box-shadow: 0 -10px 40px rgba(0,0,0,0.9); }
+        .input-group { margin-bottom: 15px; }
+        input { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #444; background: #000; color: #fff; font-size: 14px; box-sizing: border-box; outline: none; }
+        input:focus { border-color: var(--main-blue); }
+        
+        button { width: 100%; padding: 18px; border-radius: 12px; border: none; background: var(--main-blue); color: #000; font-weight: 800; font-size: 16px; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: translateY(-2px); }
+        
+        #log { font-size: 12px; margin-top: 12px; text-align: center; color: #666; min-height: 18px; }
+        .error { color: #ff4444 !important; }
+        .success { color: #00ff88 !important; }
     </style>
 </head>
 <body>
 
-    <div id="score-container">
-        <p>PUNTOS ACUMULADOS</p>
+    <div id="score-panel">
+        <div id="score-label">PUNTOS TOTALES</div>
         <div id="score">0</div>
     </div>
 
-    <div id="game-bird" onclick="clickBird()"></div>
+    <div id="game-container">
+        <div id="bird" onclick="handleGameClick(event)"></div>
+    </div>
 
-    <div id="withdrawal-panel">
-        <input type="text" id="wallet-addr" placeholder="Pega tu dirección UQBpc...">
-        <button onclick="payout()">RETIRAR AHORA</button>
-        <div id="status-msg">Toca el pájaro para sumar puntos</div>
+    <div id="payout-footer">
+        <div class="input-group">
+            <input type="text" id="wallet-addr" placeholder="Dirección de billetera (UQBpc...)">
+        </div>
+        <button onclick="processPayout()">RETIRAR AHORA</button>
+        <div id="log">Toca el pájaro para empezar a ganar</div>
     </div>
 
 <script>
-    let currentPoints = 0;
-    const scoreElement = document.getElementById('score');
-    const statusMsg = document.getElementById('status-msg');
+    let points = 0;
+    const scoreEl = document.getElementById('score');
+    const logEl = document.getElementById('log');
+    const walletInput = document.getElementById('wallet-addr');
 
-    // Tu API KEY de Toncenter
-    const MY_KEY = "3c1af0b7c876a158c6b75aaab3944f0d2294e1f387de2918b3b3f01ace12b537";
+    // CONFIGURACIÓN DE TU API KEY
+    const TON_API_KEY = "3c1af0b7c876a158c6b75aaab3944f0d2294e1f387de2918b3b3f01ace12b537";
+    const TON_ENDPOINT = "https://toncenter.com/api/v2/jsonRPC";
 
-    function clickBird() {
-        currentPoints += 1;
-        scoreElement.innerText = currentPoints;
-        statusMsg.innerText = "¡Sumando puntos!";
-        statusMsg.style.color = "#00d4ff";
+    // Función del Juego
+    function handleGameClick(e) {
+        points += 5; // Ganas 5 puntos por cada toque
+        scoreEl.innerText = points;
+        
+        // Efecto visual rápido
+        logEl.innerText = "¡Ganando puntos reales!";
+        logEl.classList.remove('error', 'success');
     }
 
-    async function payout() {
-        const wallet = document.getElementById('wallet-addr').value;
+    // Función de Retiro Real a Toncenter
+    async function processPayout() {
+        const address = walletInput.value.trim();
 
-        if (currentPoints < 10) {
-            statusMsg.innerText = "❌ Necesitas al menos 10 puntos para retirar.";
-            statusMsg.style.color = "#ff4444";
+        if (points < 20) {
+            updateLog("❌ Necesitas al menos 20 puntos para retirar.", "error");
             return;
         }
 
-        if (!wallet || wallet.length < 10) {
-            statusMsg.innerText = "❌ Dirección de billetera inválida.";
+        if (!address.startsWith("UQ") && !address.startsWith("EQ")) {
+            updateLog("❌ Dirección de Wallet inválida.", "error");
             return;
         }
 
-        statusMsg.innerText = "⏳ Intentando retiro vía Toncenter...";
+        updateLog("⏳ Conectando con Toncenter vía API Key...", "");
 
         try {
-            const response = await fetch("https://toncenter.com/api/v2/jsonRPC", {
+            // Estructura de llamada a Toncenter
+            const response = await fetch(TON_ENDPOINT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-API-Key': MY_KEY
+                    'X-API-Key': TON_API_KEY // Tu Key de prueba
                 },
                 body: JSON.stringify({
                     "id": 1,
                     "jsonrpc": "2.0",
                     "method": "sendTransfer", 
                     "params": {
-                        "dest": wallet,
-                        "amount": currentPoints * 1000000, // Convertir a nanotons
+                        "dest": address,
+                        "amount": points * 1000000, // Ajuste a nanotons
+                        "message": "Retiro Pajarito Game"
                     }
                 })
             });
@@ -88,17 +110,25 @@
             const data = await response.json();
 
             if (data.ok) {
-                statusMsg.innerText = "✅ ¡DINERO ENVIADO! Revisa tu wallet.";
-                currentPoints = 0;
-                scoreElement.innerText = "0";
+                updateLog("✅ ¡RETIRO EXITOSO! Revisa tu billetera.", "success");
+                points = 0;
+                scoreEl.innerText = "0";
+                walletInput.value = "";
             } else {
-                // Aquí es donde verás el error real de la red
-                statusMsg.innerText = "❌ Error: " + (data.error || "Sin saldo en cuenta maestra");
-                console.log("Detalle del error:", data);
+                // Aquí capturamos el error de "fondo insuficiente" o "no vinculado"
+                let errorMsg = data.error || "La API Key no tiene permisos de envío o no hay saldo en tu cuenta maestra.";
+                updateLog("❌ Red Error: " + errorMsg, "error");
+                console.log("Detalles del error:", data);
             }
-        } catch (e) {
-            statusMsg.innerText = "❌ Error de conexión con Toncenter.";
+
+        } catch (err) {
+            updateLog("❌ Error de Conexión: Sube el código a Vercel para evitar bloqueos.", "error");
         }
+    }
+
+    function updateLog(text, className) {
+        logEl.innerText = text;
+        logEl.className = className;
     }
 </script>
 
