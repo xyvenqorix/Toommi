@@ -3,90 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TON Diamond Clicker</title>
+    <title>Diamond TON Clicker</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --ton-blue: #0098ea; --bg: #000; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        :root { --ton: #0098ea; --gold: #ffd700; }
+        body { margin: 0; background: #000; color: white; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #111; border-bottom: 2px solid #333; }
+        .stats { display: flex; flex-direction: column; }
+        #score { font-size: 32px; font-weight: 800; color: var(--ton); }
+        #ton-val { font-size: 14px; color: var(--gold); font-weight: bold; }
 
-        /* HEADER */
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #111; border-bottom: 1px solid #333; }
-        .score-num { font-size: 28px; font-weight: 800; color: var(--ton-blue); }
-        .btn-withdraw { background: var(--ton-blue); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        /* Botón de Retiro con Brillo */
+        .btn-withdraw { 
+            background: #222; color: #555; border: none; padding: 12px 20px; 
+            border-radius: 12px; font-weight: bold; transition: 0.3s; pointer-events: none;
+        }
+        .ready { 
+            background: var(--ton) !important; color: white !important; 
+            pointer-events: auto !important; cursor: pointer;
+            box-shadow: 0 0 20px var(--ton); animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        /* JUEGO */
-        .game-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; }
-        .diamond { font-size: 150px; cursor: pointer; transition: transform 0.1s; user-select: none; filter: drop-shadow(0 0 20px var(--ton-blue)); }
-        .diamond:active { transform: scale(0.8); }
+        .game { flex-grow: 1; display: flex; justify-content: center; align-items: center; }
+        .diamond { font-size: 160px; cursor: pointer; transition: 0.1s; filter: drop-shadow(0 0 25px var(--ton)); user-select: none; }
+        .diamond:active { transform: scale(0.85); }
 
-        /* MODAL */
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: #1c1c1e; width: 85%; padding: 30px; border-radius: 20px; text-align: center; border: 1px solid #444; }
-        input { width: 100%; padding: 15px; margin: 20px 0; border-radius: 10px; border: 1px solid #444; background: #000; color: #fff; text-align: center; }
-        .btn-send { width: 100%; padding: 15px; border-radius: 10px; border: none; background: var(--ton-blue); color: white; font-weight: bold; }
+        /* Modal */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .m-content { background: #1c1c1e; width: 90%; padding: 30px; border-radius: 25px; text-align: center; border: 1px solid #444; }
+        input { width: 100%; padding: 18px; margin: 20px 0; border-radius: 12px; border: 1px solid #444; background: #000; color: #fff; text-align: center; font-size: 16px; }
+        .btn-confirm { width: 100%; padding: 18px; border-radius: 12px; border: none; background: var(--ton); color: white; font-weight: bold; font-size: 18px; }
     </style>
 </head>
 <body>
 
     <header class="header">
-        <div>
-            <div style="font-size: 10px; color: #888;">MIS PUNTOS</div>
-            <div id="score" class="score-num">0</div>
+        <div class="stats">
+            <span id="score">0</span>
+            <span id="ton-val">≈ 0.000 TON</span>
         </div>
-        <button class="btn-withdraw" onclick="openModal()">RETIRAR</button>
+        <button id="withdraw-btn" class="btn-withdraw" onclick="openM()">RETIRAR</button>
     </header>
 
-    <main class="game-container">
+    <main class="game">
         <div class="diamond" onclick="tap()">♦️</div>
     </main>
 
     <div id="modal" class="modal">
-        <div class="modal-content">
-            <h3>Retirar TON</h3>
-            <input type="text" id="wallet" placeholder="Tu dirección UQBpc...">
-            <button class="btn-send" onclick="sendToVercel()">CONFIRMAR ENVÍO</button>
-            <p onclick="closeModal()" style="color: #666; margin-top: 15px; cursor: pointer;">Cerrar</p>
+        <div class="modal-content m-content">
+            <h2 style="color:var(--ton)">Enviar a Wallet</h2>
+            <p id="confirm-msg" style="color:#aaa"></p>
+            <input type="text" id="wallet" placeholder="Dirección UQBpc...">
+            <button class="btn-confirm" onclick="sendToApi()">CONFIRMAR ENVÍO</button>
+            <p onclick="closeM()" style="color:#666; margin-top:20px; cursor:pointer">Cancelar</p>
         </div>
     </div>
 
 <script>
-    let points = 0;
-    if (window.Telegram) window.Telegram.WebApp.expand();
+    let p = 0;
+    const btn = document.getElementById('withdraw-btn');
+    const tonVal = document.getElementById('ton-val');
 
     function tap() {
-        points += 10;
-        document.getElementById('score').innerText = points;
-        if (window.Telegram && window.Telegram.WebApp.HapticFeedback) {
-            window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-        }
+        p += 10;
+        document.getElementById('score').innerText = p;
+        
+        // 1 punto = 0.001 TON
+        let realTon = (p * 0.001).toFixed(3);
+        tonVal.innerText = `≈ ${realTon} TON`;
+
+        // Brillar si llega a 50 puntos (0.05 TON)
+        if (p >= 50) { btn.classList.add('ready'); }
+        
+        if (window.Telegram) window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
     }
 
-    function openModal() { document.getElementById('modal').style.display = 'flex'; }
-    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    function openM() { 
+        document.getElementById('confirm-msg').innerText = `Vas a recibir ${(p * 0.001).toFixed(3)} TON`;
+        document.getElementById('modal').style.display = 'flex'; 
+    }
+    function closeM() { document.getElementById('modal').style.display = 'none'; }
 
-    async function sendToVercel() {
+    async function sendToApi() {
         const addr = document.getElementById('wallet').value;
-        if (points < 50) return alert("Mínimo 50 puntos");
-
-        // LLAMADA AL SERVIDOR DE VERCEL (Paso 2)
         try {
             const res = await fetch('/api/payout', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ address: addr, points: points })
+                body: JSON.stringify({ address: addr, points: p })
             });
             const data = await res.json();
             if (data.ok) {
-                alert("✅ ¡Pago enviado!");
-                points = 0;
+                alert("✅ ¡Pago enviado exitosamente!");
+                p = 0;
                 document.getElementById('score').innerText = "0";
-                closeModal();
+                tonVal.innerText = "≈ 0.000 TON";
+                btn.classList.remove('ready');
+                closeM();
             } else {
                 alert("❌ Error: " + data.error);
             }
         } catch (e) {
-            alert("❌ Error de comunicación con el servidor.");
+            alert("❌ Error 500: Revisa tu frase semilla en api/payout.js");
         }
     }
 </script>
