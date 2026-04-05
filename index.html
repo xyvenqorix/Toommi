@@ -2,79 +2,83 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Retiro - Test Mode</title>
+    <title>Retiro Real - Pajarito Game</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: #151515; padding: 30px; border-radius: 20px; width: 350px; text-align: center; border: 1px solid #222; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-        h2 { color: #f39c12; margin-bottom: 5px; }
-        .balance-info { font-size: 12px; color: #666; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; background: #000; color: #fff; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; border-radius: 8px; border: none; background: #f39c12; color: #000; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #e67e22; transform: scale(1.02); }
-        #log { margin-top: 20px; font-size: 13px; min-height: 40px; }
-        .err { color: #e74c3c; }
-        .ok { color: #2ecc71; }
+        body { font-family: sans-serif; background: #050505; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #111; padding: 30px; border-radius: 15px; width: 340px; border: 1px solid #00d4ff; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #333; background: #000; color: #00d4ff; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; border-radius: 5px; border: none; background: #00d4ff; color: #000; font-weight: bold; cursor: pointer; }
+        #status { margin-top: 15px; font-size: 13px; color: #888; word-break: break-all; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Retiro de Puntos</h2>
-    <div class="balance-info">Modo Prueba Activo</div>
+    <h2 style="color:#00d4ff">🦅 Retiro Real</h2>
+    <p style="font-size: 12px;">Los puntos se enviarán a esta billetera:</p>
     
     <input type="number" id="puntos" placeholder="Cantidad de puntos">
-    <input type="text" id="destino" placeholder="Dirección UQBpc...">
+    <input type="text" id="wallet" placeholder="Dirección UQBpc...">
     
-    <button onclick="testRetiro()">ENVIAR AHORA</button>
+    <button onclick="enviarPagoToncenter()">RETIRAR PUNTOS</button>
     
-    <div id="log"></div>
+    <div id="status"></div>
 </div>
 
 <script>
-    // Tu Key de prueba configurada
-    const TEST_KEY = "3c1af0b7c876a158c6b75aaab3944f0d2294e1f387de2918b3b3f01ace12b537";
-    
-    async function testRetiro() {
-        const puntos = document.getElementById('puntos').value;
-        const wallet = document.getElementById('destino').value;
-        const log = document.getElementById('log');
+    // Tu Key de Toncenter configurada
+    const API_KEY = "3c1af0b7c876a158c6b75aaab3944f0d2294e1f387de2918b3b3f01ace12b537";
+    const TONCENTER_URL = "https://toncenter.com/api/v2/jsonRPC";
 
-        if (!puntos || !wallet) {
-            log.innerHTML = "<span class='err'>⚠️ Rellena los datos</span>";
+    async function enviarPagoToncenter() {
+        const puntos = document.getElementById('puntos').value;
+        const destino = document.getElementById('wallet').value;
+        const status = document.getElementById('status');
+
+        if (!puntos || !destino) {
+            status.innerText = "❌ Escribe la cantidad y la dirección.";
             return;
         }
 
-        log.innerHTML = "⏳ Conectando con la API...";
+        status.innerText = "⏳ Procesando transacción en la red TON...";
 
         try {
-            // Ejemplo de llamada POST enviando tu Key
-            const response = await fetch('https://api.tu-servicio-crypto.com/v1/payout', {
+            // Conversión: Aquí decides cuántos TON valen tus puntos (ej: 1000 pts = 0.1 TON)
+            // 1 TON = 1,000,000,000 nanotons
+            const montoNano = puntos * 100000000; 
+
+            const response = await fetch(TONCENTER_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${TEST_KEY}` // Aquí viaja tu Key
+                    'X-API-Key': API_KEY // Usamos el header que pide Toncenter
                 },
                 body: JSON.stringify({
-                    address: wallet,
-                    amount: puntos,
-                    currency: "TON" // O la moneda que uses
+                    "id": 1,
+                    "jsonrpc": "2.0",
+                    "method": "sendTransfer", // Método para enviar desde tu wallet vinculada a la Key
+                    "params": {
+                        "dest": destino,
+                        "amount": montoNano,
+                        "message": "Retiro Pajarito Game"
+                    }
                 })
             });
 
-            // Como es una prueba, si la URL no existe dará error de red
-            // Pero aquí verás si la lógica de envío es correcta
-            if (response.ok) {
-                const data = await response.json();
-                log.innerHTML = "<span class='ok'>✅ Transacción procesada con éxito</span>";
+            const data = await response.json();
+
+            if (data.ok) {
+                status.style.color = "#00ff88";
+                status.innerText = "✅ ¡Enviado! Hash: " + data.result.hash;
             } else {
-                log.innerHTML = `<span class='err'>❌ Error del servidor: ${response.status}</span>`;
+                // Aquí es donde te dirá "Insufficient balance" si tu wallet está vacía
+                status.style.color = "#ff4444";
+                status.innerText = "❌ Error: " + (data.error || "No se pudo procesar. Revisa tu balance.");
             }
 
         } catch (error) {
-            // Si la URL es de ejemplo, entrará aquí (Error de red)
-            log.innerHTML = "<span class='err'>❌ Error: URL de API no configurada o rechazo de CORS</span>";
-            console.log("Datos que se intentaron enviar:", { key: TEST_KEY, wallet, puntos });
+            status.innerText = "❌ Error de conexión. Prueba subiendo el código a Vercel.";
+            console.error(error);
         }
     }
 </script>
