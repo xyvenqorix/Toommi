@@ -2,130 +2,146 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
-    <title>TON Clicker Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TON Clicker Pro</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --ton-blue: #0098ea; }
-        body { 
-            margin: 0; background: #000; color: white; 
-            font-family: 'Segoe UI', sans-serif; 
-            display: flex; flex-direction: column; align-items: center; 
-            height: 100vh; overflow: hidden; touch-action: manipulation;
-        }
+        :root { --ton-blue: #0098ea; --bg: #000000; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
-        /* Marcador de Puntos */
-        #ui-top { margin-top: 40px; text-align: center; pointer-events: none; }
-        #score { font-size: 5rem; font-weight: 900; color: var(--ton-blue); text-shadow: 0 0 20px rgba(0,152,234,0.5); }
-        #label { font-size: 12px; letter-spacing: 3px; color: #888; }
+        body { 
+            margin: 0; background: var(--bg); color: white; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+
+        /* Cabecera con Puntos */
+        .header { padding: 20px; text-align: center; background: linear-gradient(to bottom, #111, #000); }
+        .score-label { font-size: 12px; color: #888; letter-spacing: 2px; margin-bottom: 5px; }
+        .score-num { font-size: 3.5rem; font-weight: 800; color: var(--ton-blue); text-shadow: 0 0 20px rgba(0,152,234,0.4); }
 
         /* Área de Juego */
-        #game-canvas { 
-            flex-grow: 1; width: 100%; position: relative; 
-            background: radial-gradient(circle, #111 0%, #000 70%);
+        .game-area { flex-grow: 1; display: flex; justify-content: center; align-items: center; position: relative; }
+        .ton-logo { 
+            width: 180px; height: 180px; cursor: pointer;
+            transition: transform 0.1s; filter: drop-shadow(0 0 15px var(--ton-blue));
+            z-index: 10;
+        }
+        .ton-logo:active { transform: scale(0.9); }
+
+        /* Botón Flotante de Retiro */
+        .btn-withdraw {
+            position: absolute; bottom: 30px; padding: 15px 40px;
+            background: var(--ton-blue); color: white; border: none;
+            border-radius: 50px; font-weight: bold; font-size: 16px;
+            box-shadow: 0 5px 15px rgba(0,152,234,0.3); cursor: pointer;
         }
 
-        /* El Logo de TON (Objetivo) */
-        #ton-target { 
-            width: 120px; height: 120px; 
-            position: absolute; cursor: pointer;
-            transition: transform 0.05s;
-            z-index: 100;
-            display: flex; justify-content: center; align-items: center;
+        /* Ventana de Retiro (Modal) */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+            backdrop-filter: blur(5px);
         }
-        #ton-target img { width: 100%; height: 100%; pointer-events: none; }
-        #ton-target:active { transform: scale(0.8); }
+        .modal-content {
+            background: #1c1c1e; width: 90%; max-width: 400px;
+            padding: 30px; border-radius: 20px; border: 1px solid #333;
+            text-align: center;
+        }
+        input {
+            width: 100%; padding: 15px; margin: 20px 0; border-radius: 12px;
+            border: 1px solid #444; background: #000; color: #fff;
+            font-size: 14px; text-align: center; outline: none;
+        }
+        input:focus { border-color: var(--ton-blue); }
+        .btn-confirm {
+            width: 100%; padding: 15px; border-radius: 12px; border: none;
+            background: var(--ton-blue); color: white; font-weight: bold; font-size: 16px;
+        }
+        .btn-close { color: #888; margin-top: 15px; display: inline-block; cursor: pointer; font-size: 14px; }
 
-        /* Panel de Retiro */
-        #payout-panel { 
-            width: 100%; max-width: 450px; background: #111; padding: 25px; 
-            border-radius: 25px 25px 0 0; border-top: 2px solid #333; 
-            box-sizing: border-box; z-index: 200;
+        /* Notificaciones */
+        #toast {
+            position: fixed; top: 20px; background: #333; color: white;
+            padding: 10px 20px; border-radius: 10px; font-size: 14px;
+            display: none; transition: 0.3s; z-index: 2000;
         }
-        input { 
-            width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; 
-            border: 1px solid #444; background: #000; color: #fff; text-align: center; box-sizing: border-box;
-        }
-        button { 
-            width: 100%; padding: 18px; border-radius: 12px; border: none; 
-            background: var(--ton-blue); color: white; font-weight: bold; font-size: 1.1rem; cursor: pointer; 
-        }
-        #status-msg { font-size: 12px; margin-top: 10px; text-align: center; color: #666; min-height: 15px; }
     </style>
 </head>
 <body>
 
-    <div id="ui-top">
-        <div id="label">PUNTOS ACUMULADOS</div>
-        <div id="score">0</div>
+    <div id="toast"></div>
+
+    <div class="header">
+        <div class="score-label">BALANCE TON</div>
+        <div id="score" class="score-num">0</div>
     </div>
 
-    <div id="game-canvas">
-        <div id="ton-target" onclick="processClick(event)">
-            <img src="https://cryptologos.cc/logos/toncoin-ton-logo.png" alt="TON">
+    <div class="game-area">
+        <img src="https://cryptologos.cc/logos/toncoin-ton-logo.png" 
+             class="ton-logo" id="logo" onclick="addPoint()">
+        
+        <button class="btn-withdraw" onclick="openModal()">RETIRAR</button>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin:0; color: var(--ton-blue);">Retirar Fondos</h2>
+            <p style="color:#888; font-size: 14px;">Introduce tu dirección de billetera TON</p>
+            <input type="text" id="wallet" placeholder="UQBpcZYq-sdIqj8Hd1zXKZxwrFgHJ...">
+            <button class="btn-confirm" onclick="processWithdraw()">CONFIRMAR ENVÍO</button>
+            <div class="btn-close" onclick="closeModal()">Cancelar</div>
         </div>
     </div>
 
-    <div id="payout-panel">
-        <input type="text" id="address" placeholder="Dirección TON (UQBpc...)">
-        <button onclick="sendWithdrawal()">RETIRAR AHORA</button>
-        <div id="status-msg">¡Toca el logo azul para ganar puntos!</div>
-    </div>
-
 <script>
-    let puntos = 0;
-    const scoreDisplay = document.getElementById('score');
-    const target = document.getElementById('ton-target');
-    const status = document.getElementById('status-msg');
-
-    // CONFIGURACIÓN (Tu Key de la captura)
+    let points = 0;
     const MI_API_KEY = "3c1af0b7c876a158c6b75aaab3944f0d2294e1f387de2918b3b3f01ace12b537";
 
-    // Función para mover el logo a un lugar al azar
-    function moverLogo() {
-        const canvas = document.getElementById('game-canvas');
-        const maxX = canvas.clientWidth - 120;
-        const maxY = canvas.clientHeight - 120;
-        
-        const randomX = Math.floor(Math.random() * maxX);
-        const randomY = Math.floor(Math.random() * maxY);
-        
-        target.style.left = randomX + "px";
-        target.style.top = randomY + "px";
+    // Iniciar Telegram WebApp si existe
+    if (window.Telegram && window.Telegram.WebApp) {
+        window.Telegram.WebApp.expand();
+        window.Telegram.WebApp.ready();
     }
 
-    // Al tocar el logo
-    function processClick(event) {
-        event.stopPropagation(); // Evita errores de click doble
-        puntos += 10;
-        scoreDisplay.innerText = puntos;
+    function addPoint() {
+        points += 10;
+        document.getElementById('score').innerText = points;
         
-        status.innerText = "¡Puntos sumados! +10";
-        status.style.color = "#00ff88";
-        
-        moverLogo(); // Se mueve al tocarlo
+        // Pequeña vibración si está en Telegram
+        if (window.Telegram && window.Telegram.WebApp.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+        }
     }
 
-    // Iniciar posición
-    moverLogo();
+    function openModal() { document.getElementById('modal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
-    // Función de Retiro
-    async function sendWithdrawal() {
-        const wallet = document.getElementById('address').value.trim();
+    function showToast(msg, color = "#333") {
+        const t = document.getElementById('toast');
+        t.innerText = msg;
+        t.style.background = color;
+        t.style.display = 'block';
+        setTimeout(() => t.style.display = 'none', 3000);
+    }
 
-        if (puntos < 20) {
-            status.innerText = "❌ Necesitas al menos 20 puntos.";
-            status.style.color = "#ff4444";
+    async function processWithdraw() {
+        const addr = document.getElementById('wallet').value.trim();
+
+        if (points < 50) {
+            showToast("❌ Mínimo 50 puntos", "#ff4444");
             return;
         }
-        if (!wallet.startsWith("UQ") && !wallet.startsWith("EQ")) {
-            status.innerText = "❌ Wallet inválida.";
+        if (!addr.startsWith("UQ") && !addr.startsWith("EQ")) {
+            showToast("❌ Dirección no válida", "#ff4444");
             return;
         }
 
-        status.innerText = "⏳ Conectando con Toncenter...";
-        status.style.color = "#888";
+        showToast("⏳ Procesando...", "#444");
 
         try {
+            // Ya no sale el mensaje de Vercel porque estamos usando la URL directa
             const response = await fetch("https://toncenter.com/api/v2/jsonRPC", {
                 method: 'POST',
                 headers: {
@@ -136,28 +152,22 @@
                     "id": 1,
                     "jsonrpc": "2.0",
                     "method": "sendTransfer", 
-                    "params": {
-                        "dest": wallet,
-                        "amount": puntos * 1000000 // Nanotons
-                    }
+                    "params": { "dest": addr, "amount": points * 1000000 }
                 })
             });
 
             const data = await response.json();
 
             if (data.ok) {
-                status.innerText = "✅ RETIRO EXITOSO. Revisa tu App.";
-                status.style.color = "#00ff88";
-                puntos = 0;
-                scoreDisplay.innerText = "0";
+                showToast("✅ ¡Enviado con éxito!", "#00ff88");
+                points = 0;
+                document.getElementById('score').innerText = "0";
+                closeModal();
             } else {
-                // Error típico si la Key no tiene saldo o permiso
-                status.innerText = "❌ Error de Red: Revisa saldo en cuenta maestra.";
-                status.style.color = "#ff4444";
-                console.log(data);
+                showToast("❌ Error: Sin saldo en cuenta maestra.", "#ff4444");
             }
         } catch (e) {
-            status.innerText = "❌ Error: Sube el código a Vercel.";
+            showToast("❌ Error de conexión.", "#ff4444");
         }
     }
 </script>
