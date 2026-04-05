@@ -3,185 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TON Clicker v2</title>
+    <title>TON Diamond Clicker</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --ton-blue: #0098ea; --bg: #000000; --panel: #1c1c1e; }
+        :root { --ton-blue: #0098ea; --bg: #000; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
-        body { 
-            margin: 0; background: var(--bg); color: white; 
-            font-family: -apple-system, system-ui, sans-serif;
-            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
-        }
+        body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-        /* HEADER SUPERIOR */
-        .header { 
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 20px; background: #111; border-bottom: 1px solid #333;
-            z-index: 100;
-        }
-        .user-stats { display: flex; flex-direction: column; }
-        .score-label { font-size: 10px; color: #888; letter-spacing: 1px; }
-        .score-num { font-size: 24px; font-weight: 800; color: var(--ton-blue); }
+        /* HEADER */
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #111; border-bottom: 1px solid #333; }
+        .score-num { font-size: 28px; font-weight: 800; color: var(--ton-blue); }
+        .btn-withdraw { background: var(--ton-blue); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; }
 
-        .btn-header-withdraw {
-            background: var(--ton-blue); color: white; border: none;
-            padding: 8px 18px; border-radius: 8px; font-weight: bold;
-            font-size: 14px; cursor: pointer; transition: 0.2s;
-        }
-        .btn-header-withdraw:active { transform: scale(0.95); opacity: 0.8; }
+        /* JUEGO */
+        .game-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; }
+        .diamond { font-size: 150px; cursor: pointer; transition: transform 0.1s; user-select: none; filter: drop-shadow(0 0 20px var(--ton-blue)); }
+        .diamond:active { transform: scale(0.8); }
 
-        /* CUERPO DEL JUEGO */
-        .game-container { 
-            flex-grow: 1; display: flex; flex-direction: column; 
-            justify-content: center; align-items: center; position: relative;
-        }
-        .main-logo { 
-            width: 220px; height: 220px; cursor: pointer;
-            transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            filter: drop-shadow(0 0 30px rgba(0,152,234,0.3));
-        }
-        .main-logo:active { transform: scale(0.85); }
-
-        /* VENTANA MODAL (RETIRO) */
-        .modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); display: none;
-            justify-content: center; align-items: center; z-index: 1000;
-            backdrop-filter: blur(8px);
-        }
-        .modal-content {
-            background: var(--panel); width: 85%; max-width: 380px;
-            padding: 25px; border-radius: 24px; border: 1px solid #444;
-            text-align: center; animation: slideUp 0.3s ease-out;
-        }
-        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        input {
-            width: 100%; padding: 16px; margin: 20px 0; border-radius: 14px;
-            border: 1px solid #444; background: #000; color: #fff;
-            font-size: 14px; text-align: center; outline: none;
-        }
-        .btn-confirm {
-            width: 100%; padding: 16px; border-radius: 14px; border: none;
-            background: var(--ton-blue); color: white; font-weight: bold; font-size: 16px;
-        }
-        .btn-cancel { color: #666; margin-top: 15px; cursor: pointer; font-size: 14px; }
-
-        /* AVISOS */
-        #status-bubble {
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: #333; color: white; padding: 10px 25px; border-radius: 20px;
-            font-size: 13px; display: none; z-index: 2000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
+        /* MODAL */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #1c1c1e; width: 85%; padding: 30px; border-radius: 20px; text-align: center; border: 1px solid #444; }
+        input { width: 100%; padding: 15px; margin: 20px 0; border-radius: 10px; border: 1px solid #444; background: #000; color: #fff; text-align: center; }
+        .btn-send { width: 100%; padding: 15px; border-radius: 10px; border: none; background: var(--ton-blue); color: white; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="status-bubble"></div>
-
     <header class="header">
-        <div class="user-stats">
-            <span class="score-label">PUNTOS ACUMULADOS</span>
-            <span id="score" class="score-num">0</span>
+        <div>
+            <div style="font-size: 10px; color: #888;">MIS PUNTOS</div>
+            <div id="score" class="score-num">0</div>
         </div>
-        <button class="btn-header-withdraw" onclick="toggleModal(true)">RETIRAR</button>
+        <button class="btn-withdraw" onclick="openModal()">RETIRAR</button>
     </header>
 
     <main class="game-container">
-        <img src="https://cryptologos.cc/logos/toncoin-ton-logo.png" 
-             alt="TON Logo" class="main-logo" onclick="tapAction()">
-        <p style="color: #444; font-size: 12px; margin-top: 20px;">Toca el logo para farmear</p>
+        <div class="diamond" onclick="tap()">♦️</div>
     </main>
 
-    <div id="withdraw-modal" class="modal">
+    <div id="modal" class="modal">
         <div class="modal-content">
-            <h3 style="margin:0;">Retirar a Wallet</h3>
-            <p style="color:#999; font-size: 13px; margin-top: 8px;">Introduce tu dirección TON (Mainnet)</p>
-            <input type="text" id="wallet-input" placeholder="UQBpcZYq... (Tu dirección)">
-            <button class="btn-confirm" onclick="executePayout()">CONFIRMAR RETIRO</button>
-            <div class="btn-cancel" onclick="toggleModal(false)">Cerrar</div>
+            <h3>Retirar TON</h3>
+            <input type="text" id="wallet" placeholder="Tu dirección UQBpc...">
+            <button class="btn-send" onclick="sendToVercel()">CONFIRMAR ENVÍO</button>
+            <p onclick="closeModal()" style="color: #666; margin-top: 15px; cursor: pointer;">Cerrar</p>
         </div>
     </div>
 
 <script>
     let points = 0;
-    const API_KEY = "3c1af0b7c876a158c6b75aaab3944f0d2294e1f387de2918b3b3f01ace12b537";
+    if (window.Telegram) window.Telegram.WebApp.expand();
 
-    // Iniciar Telegram si está disponible
-    if (window.Telegram && window.Telegram.WebApp) {
-        window.Telegram.WebApp.expand();
-        window.Telegram.WebApp.ready();
-    }
-
-    function tapAction() {
-        points += 5;
+    function tap() {
+        points += 10;
         document.getElementById('score').innerText = points;
-        
-        // Haptic Feedback (Vibración)
         if (window.Telegram && window.Telegram.WebApp.HapticFeedback) {
             window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
         }
     }
 
-    function toggleModal(show) {
-        document.getElementById('withdraw-modal').style.display = show ? 'flex' : 'none';
-    }
+    function openModal() { document.getElementById('modal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
-    function notify(text, color = "#333") {
-        const b = document.getElementById('status-bubble');
-        b.innerText = text;
-        b.style.background = color;
-        b.style.display = 'block';
-        setTimeout(() => b.style.display = 'none', 3000);
-    }
+    async function sendToVercel() {
+        const addr = document.getElementById('wallet').value;
+        if (points < 50) return alert("Mínimo 50 puntos");
 
-    async function executePayout() {
-        const address = document.getElementById('wallet-input').value.trim();
-
-        if (points < 25) {
-            notify("❌ Mínimo 25 puntos para retirar", "#b03a2e");
-            return;
-        }
-
-        if (!address || address.length < 20) {
-            notify("❌ Dirección inválida", "#b03a2e");
-            return;
-        }
-
-        notify("⏳ Conectando con la red...", "#2c3e50");
-
+        // LLAMADA AL SERVIDOR DE VERCEL (Paso 2)
         try {
-            const response = await fetch("https://toncenter.com/api/v2/jsonRPC", {
+            const res = await fetch('/api/payout', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-Key': API_KEY
-                },
-                body: JSON.stringify({
-                    "id": 1,
-                    "jsonrpc": "2.0",
-                    "method": "sendTransfer", 
-                    "params": { "dest": address, "amount": points * 1000000 }
-                })
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ address: addr, points: points })
             });
-
-            const data = await response.json();
-
+            const data = await res.json();
             if (data.ok) {
-                notify("✅ Transacción enviada con éxito", "#1e8449");
+                alert("✅ ¡Pago enviado!");
                 points = 0;
                 document.getElementById('score').innerText = "0";
-                toggleModal(false);
+                closeModal();
             } else {
-                notify("❌ Error: Balance insuficiente en Wallet Maestra", "#b03a2e");
+                alert("❌ Error: " + data.error);
             }
         } catch (e) {
-            notify("❌ Error de comunicación con la red", "#b03a2e");
+            alert("❌ Error de comunicación con el servidor.");
         }
     }
 </script>
-
 </body>
 </html>
