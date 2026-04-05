@@ -3,90 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Diamond TON Clicker</title>
+    <title>Diamond TON</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --ton: #0098ea; --gold: #ffd700; }
+        :root { --ton: #0098ea; }
         body { margin: 0; background: #000; color: white; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        
         .header { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #111; border-bottom: 2px solid #333; }
-        .stats { display: flex; flex-direction: column; }
         #score { font-size: 32px; font-weight: 800; color: var(--ton); }
-        #ton-val { font-size: 14px; color: var(--gold); font-weight: bold; }
-
-        /* Botón de Retiro con Brillo */
-        .btn-withdraw { 
-            background: #222; color: #555; border: none; padding: 12px 20px; 
-            border-radius: 12px; font-weight: bold; transition: 0.3s; pointer-events: none;
-        }
-        .ready { 
-            background: var(--ton) !important; color: white !important; 
-            pointer-events: auto !important; cursor: pointer;
-            box-shadow: 0 0 20px var(--ton); animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-
+        .btn-w { background: #222; color: #555; border: none; padding: 12px 20px; border-radius: 12px; font-weight: bold; pointer-events: none; transition: 0.3s; }
+        .ready { background: var(--ton) !important; color: white !important; pointer-events: auto !important; box-shadow: 0 0 20px var(--ton); animation: p 1.5s infinite; }
+        @keyframes p { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
         .game { flex-grow: 1; display: flex; justify-content: center; align-items: center; }
-        .diamond { font-size: 160px; cursor: pointer; transition: 0.1s; filter: drop-shadow(0 0 25px var(--ton)); user-select: none; }
+        .diamond { font-size: 150px; cursor: pointer; transition: 0.1s; filter: drop-shadow(0 0 20px var(--ton)); user-select: none; }
         .diamond:active { transform: scale(0.85); }
-
-        /* Modal */
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .m-content { background: #1c1c1e; width: 90%; padding: 30px; border-radius: 25px; text-align: center; border: 1px solid #444; }
-        input { width: 100%; padding: 18px; margin: 20px 0; border-radius: 12px; border: 1px solid #444; background: #000; color: #fff; text-align: center; font-size: 16px; }
-        .btn-confirm { width: 100%; padding: 18px; border-radius: 12px; border: none; background: var(--ton); color: white; font-weight: bold; font-size: 18px; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .m-content { background: #1c1c1e; width: 85%; padding: 30px; border-radius: 20px; text-align: center; border: 1px solid #444; }
+        input { width: 100%; padding: 15px; margin: 20px 0; border-radius: 10px; border: 1px solid #444; background: #000; color: #fff; text-align: center; }
+        .btn-c { width: 100%; padding: 15px; border-radius: 10px; border: none; background: var(--ton); color: white; font-weight: bold; }
     </style>
 </head>
 <body>
-
     <header class="header">
-        <div class="stats">
+        <div style="display:flex; flex-direction:column;">
             <span id="score">0</span>
-            <span id="ton-val">≈ 0.000 TON</span>
+            <span id="ton-val" style="color:gray; font-size:12px;">0.000 TON</span>
         </div>
-        <button id="withdraw-btn" class="btn-withdraw" onclick="openM()">RETIRAR</button>
+        <button id="btn-w" class="btn-w" onclick="openM()">RETIRAR</button>
     </header>
-
-    <main class="game">
-        <div class="diamond" onclick="tap()">♦️</div>
-    </main>
-
+    <main class="game"><div class="diamond" onclick="tap()">♦️</div></main>
     <div id="modal" class="modal">
-        <div class="modal-content m-content">
-            <h2 style="color:var(--ton)">Enviar a Wallet</h2>
-            <p id="confirm-msg" style="color:#aaa"></p>
+        <div class="m-content">
+            <h2 style="color:var(--ton)">Retirar a Wallet</h2>
             <input type="text" id="wallet" placeholder="Dirección UQBpc...">
-            <button class="btn-confirm" onclick="sendToApi()">CONFIRMAR ENVÍO</button>
-            <p onclick="closeM()" style="color:#666; margin-top:20px; cursor:pointer">Cancelar</p>
+            <button class="btn-c" onclick="send()">CONFIRMAR</button>
+            <p onclick="closeM()" style="color:#666; margin-top:15px; cursor:pointer">Cerrar</p>
         </div>
     </div>
-
 <script>
     let p = 0;
-    const btn = document.getElementById('withdraw-btn');
-    const tonVal = document.getElementById('ton-val');
-
+    const btn = document.getElementById('btn-w');
     function tap() {
         p += 10;
         document.getElementById('score').innerText = p;
-        
-        // 1 punto = 0.001 TON
-        let realTon = (p * 0.001).toFixed(3);
-        tonVal.innerText = `≈ ${realTon} TON`;
-
-        // Brillar si llega a 50 puntos (0.05 TON)
-        if (p >= 50) { btn.classList.add('ready'); }
-        
-        if (window.Telegram) window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+        document.getElementById('ton-val').innerText = (p * 0.001).toFixed(3) + " TON";
+        if (p >= 50) btn.classList.add('ready');
+        if(window.Telegram) window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
     }
-
-    function openM() { 
-        document.getElementById('confirm-msg').innerText = `Vas a recibir ${(p * 0.001).toFixed(3)} TON`;
-        document.getElementById('modal').style.display = 'flex'; 
-    }
+    function openM() { document.getElementById('modal').style.display = 'flex'; }
     function closeM() { document.getElementById('modal').style.display = 'none'; }
-
-    async function sendToApi() {
+    async function send() {
         const addr = document.getElementById('wallet').value;
         try {
             const res = await fetch('/api/payout', {
@@ -95,19 +60,9 @@
                 body: JSON.stringify({ address: addr, points: p })
             });
             const data = await res.json();
-            if (data.ok) {
-                alert("✅ ¡Pago enviado exitosamente!");
-                p = 0;
-                document.getElementById('score').innerText = "0";
-                tonVal.innerText = "≈ 0.000 TON";
-                btn.classList.remove('ready');
-                closeM();
-            } else {
-                alert("❌ Error: " + data.error);
-            }
-        } catch (e) {
-            alert("❌ Error 500: Revisa tu frase semilla en api/payout.js");
-        }
+            if (data.ok) { alert("¡Pago enviado!"); location.reload(); }
+            else { alert("Error: " + data.error); }
+        } catch (e) { alert("Error 500: Revisa el package.json y tus 24 palabras."); }
     }
 </script>
 </body>
