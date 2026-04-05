@@ -1,4 +1,4 @@
-const { TonClient, WalletContractV4, internal } = require("@ton/ton");
+const { TonClient, WalletContractV4, internal, toNano } = require("@ton/ton");
 const { mnemonicToPrivateKey } = require("@ton/crypto");
 
 export default async function handler(req, res) {
@@ -10,13 +10,19 @@ export default async function handler(req, res) {
         apiKey: '3c1af0b7c876a158c6b75aaab3944f0d2294e1f387de2918b3b3f01ace12b537'
     });
 
-    // REEMPLAZA ESTO CON TUS 24 PALABRAS
-    const mnemonic = "PALABRA1 PALABRA2 ... PALABRA24"; 
+    // REEMPLAZA CON TUS 24 PALABRAS REALES
+    const mnemonic = "TU_FRASE_AQUÍ"; 
 
     try {
         const key = await mnemonicToPrivateKey(mnemonic.split(" "));
         const wallet = WalletContractV4.create({ publicKey: key.publicKey, workchain: 0 });
         const contract = client.open(wallet);
+        
+        // --- EXPLICACIÓN DE PUNTOS ---
+        // 1 punto = 0.001 TON
+        // Si el usuario tiene 100 puntos, recibe 0.1 TON
+        const montoEnviar = (points * 0.001).toFixed(3); 
+
         const seqno = await contract.getSeqno();
 
         await contract.sendTransfer({
@@ -24,13 +30,15 @@ export default async function handler(req, res) {
             seqno: seqno,
             messages: [internal({
                 to: address,
-                value: (points * 0.0001).toString(), // Ajusta cuánto TON das por punto
+                value: toNano(montoEnviar), // Convertimos a Nanotons correctamente
                 body: "Retiro Diamante Xyvenqorix",
                 bounce: false
             })]
         });
-        res.status(200).json({ ok: true });
+        
+        res.status(200).json({ ok: true, amount: montoEnviar });
     } catch (e) {
-        res.status(500).json({ ok: false, error: e.message });
+        // Si sale error de número aquí, es por el formato del monto
+        res.status(500).json({ ok: false, error: "Error de red: " + e.message });
     }
 }
