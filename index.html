@@ -2,65 +2,100 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Retiro Real - Pajarito Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pajarito Game & Retiro</title>
     <style>
-        body { font-family: sans-serif; background: #050505; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: #111; padding: 30px; border-radius: 15px; width: 340px; border: 1px solid #00d4ff; text-align: center; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #333; background: #000; color: #00d4ff; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; border-radius: 5px; border: none; background: #00d4ff; color: #000; font-weight: bold; cursor: pointer; }
-        #status { margin-top: 15px; font-size: 13px; color: #888; word-break: break-all; }
+        body { font-family: 'Arial', sans-serif; background: #0a0a0a; color: white; margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+        
+        /* Interfaz de Puntos */
+        #header { width: 100%; padding: 20px; text-align: center; background: #111; border-bottom: 2px solid #00d4ff; z-index: 10; }
+        #puntos-display { font-size: 2rem; color: #00d4ff; font-weight: bold; }
+
+        /* El Juego */
+        #game-area { width: 100vw; height: 60vh; position: relative; cursor: pointer; }
+        #pajarito { width: 80px; height: 80px; background: #ff9800; border-radius: 50%; position: absolute; display: flex; justify-content: center; align-items: center; font-size: 40px; user-select: none; transition: 0.1s; box-shadow: 0 0 20px #ff9800; }
+        #pajarito:active { transform: scale(0.9); }
+
+        /* Panel de Retiro */
+        #panel-retiro { background: #1a1a1a; padding: 20px; width: 90%; max-width: 400px; border-radius: 15px; margin-top: -50px; z-index: 20; border: 1px solid #333; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #444; background: #000; color: #fff; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; border-radius: 8px; border: none; background: #00d4ff; color: #000; font-weight: bold; cursor: pointer; }
+        #status { font-size: 12px; margin-top: 10px; color: #888; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2 style="color:#00d4ff">🦅 Retiro Real</h2>
-    <p style="font-size: 12px;">Los puntos se enviarán a esta billetera:</p>
-    
-    <input type="number" id="puntos" placeholder="Cantidad de puntos">
+<div id="header">
+    <div>PUNTOS GANADOS</div>
+    <div id="puntos-display">0</div>
+</div>
+
+<div id="game-area" onclick="moverPajarito()">
+    <div id="pajarito">🐦</div>
+</div>
+
+<div id="panel-retiro">
+    <h3>Retirar a Wallet</h3>
     <input type="text" id="wallet" placeholder="Dirección UQBpc...">
-    
-    <button onclick="enviarPagoToncenter()">RETIRAR PUNTOS</button>
-    
-    <div id="status"></div>
+    <button onclick="solicitarRetiro()">RETIRAR TODO</button>
+    <div id="status">Presiona el pájaro para ganar puntos antes de retirar.</div>
 </div>
 
 <script>
-    // Tu Key de Toncenter configurada
-    const API_KEY = "3c1af0b7c876a158c6b75aaab3944f0d2294e1f387de2918b3b3f01ace12b537";
-    const TONCENTER_URL = "https://toncenter.com/api/v2/jsonRPC";
+    let puntos = 0;
+    const display = document.getElementById('puntos-display');
+    const pajarito = document.getElementById('pajarito');
+    const status = document.getElementById('status');
 
-    async function enviarPagoToncenter() {
-        const puntos = document.getElementById('puntos').value;
-        const destino = document.getElementById('wallet').value;
-        const status = document.getElementById('status');
+    // 1. LÓGICA DEL JUEGO (Mover y ganar)
+    function moverPajarito() {
+        puntos += 10; // Ganas 10 puntos por click
+        display.innerText = puntos;
 
-        if (!puntos || !destino) {
-            status.innerText = "❌ Escribe la cantidad y la dirección.";
+        const x = Math.random() * (window.innerWidth - 100);
+        const y = Math.random() * (window.innerHeight * 0.5);
+        
+        pajarito.style.left = x + "px";
+        pajarito.style.top = y + "px";
+        
+        status.innerText = "¡Sigue así! Necesitas puntos para retirar.";
+    }
+
+    // Mover al inicio
+    moverPajarito();
+
+    // 2. LÓGICA DE RETIRO (Usa tu API KEY)
+    async function solicitarRetiro() {
+        const wallet = document.getElementById('wallet').value;
+        const API_KEY = "3c1af0b7c876a158c6b75aaab3944f0d2294e1f387de2918b3b3f01ace12b537";
+
+        if (puntos < 50) {
+            status.innerText = "❌ Necesitas al menos 50 puntos.";
+            return;
+        }
+        if (!wallet.startsWith("UQ") && !wallet.startsWith("EQ")) {
+            status.innerText = "❌ Dirección de wallet no válida.";
             return;
         }
 
-        status.innerText = "⏳ Procesando transacción en la red TON...";
+        status.innerText = "⏳ Conectando con Toncenter...";
 
         try {
-            // Conversión: Aquí decides cuántos TON valen tus puntos (ej: 1000 pts = 0.1 TON)
-            // 1 TON = 1,000,000,000 nanotons
-            const montoNano = puntos * 100000000; 
-
-            const response = await fetch(TONCENTER_URL, {
+            // Intentamos la petición a Toncenter
+            const response = await fetch("https://toncenter.com/api/v2/jsonRPC", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-API-Key': API_KEY // Usamos el header que pide Toncenter
+                    'X-API-Key': API_KEY
                 },
                 body: JSON.stringify({
                     "id": 1,
                     "jsonrpc": "2.0",
-                    "method": "sendTransfer", // Método para enviar desde tu wallet vinculada a la Key
+                    "method": "sendTransfer", 
                     "params": {
-                        "dest": destino,
-                        "amount": montoNano,
-                        "message": "Retiro Pajarito Game"
+                        "dest": wallet,
+                        "amount": puntos * 1000000, // Ajuste de puntos a Nanotons
+                        "message": "Retiro Pajarito Web"
                     }
                 })
             });
@@ -69,16 +104,17 @@
 
             if (data.ok) {
                 status.style.color = "#00ff88";
-                status.innerText = "✅ ¡Enviado! Hash: " + data.result.hash;
+                status.innerText = "✅ ¡Retiro Exitoso! Puntos enviados.";
+                puntos = 0;
+                display.innerText = "0";
             } else {
-                // Aquí es donde te dirá "Insufficient balance" si tu wallet está vacía
+                // Si sale error aquí, es porque Toncenter exige firma (BOC) o tu cuenta no tiene saldo
                 status.style.color = "#ff4444";
-                status.innerText = "❌ Error: " + (data.error || "No se pudo procesar. Revisa tu balance.");
+                status.innerText = "❌ Error de Red: Toncenter requiere firma manual o fondos insuficientes.";
+                console.log("Respuesta API:", data);
             }
-
-        } catch (error) {
-            status.innerText = "❌ Error de conexión. Prueba subiendo el código a Vercel.";
-            console.error(error);
+        } catch (e) {
+            status.innerText = "❌ Error: No se pudo conectar. Asegúrate de estar en HTTPS.";
         }
     }
 </script>
